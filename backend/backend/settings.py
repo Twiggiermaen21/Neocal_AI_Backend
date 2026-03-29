@@ -16,19 +16,9 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-print("==== ENV CHECK ====")
-print("DB_NAME:", os.getenv("DB_NAME"))
-print("DB_USER:", os.getenv("DB_USER"))
-print("DB_PWD:", os.getenv("DB_PWD"))
-print("DB_HOST:", os.getenv("DB_HOST"))
-print("DB_PORT:", os.getenv("DB_PORT"))
-print("===================")
-
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-
 
 
 MEDIA_URL = '/media/'
@@ -39,9 +29,9 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-nma=xi6x2p-crjg^ifqqkapyu1qjd0l=+wn)-rijk_o%$!k3w_"
+SECRET_KEY = os.getenv("SECRET_KEY")
 
-GOOGLE_CLIENT_ID = "408931069876-k6mqvg5o0kfsousomukcebb3g1m1qr67.apps.googleusercontent.com"
+GOOGLE_CLIENT_ID = os.getenv("CLIENT_ID")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
