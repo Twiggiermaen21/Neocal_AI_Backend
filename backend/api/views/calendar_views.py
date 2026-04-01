@@ -11,6 +11,7 @@ from ..utils.cloudinary_upload import upload_image
 from rest_framework.exceptions import ValidationError
 import json
 from rest_framework import generics, status, response, permissions
+from rest_framework.response import Response
 from django.conf import settings
 import os
 from ..utils.calendar_generation import (
@@ -185,33 +186,31 @@ class CalendarCreateView(generics.ListCreateAPIView):
         top_image_value = serializer.validated_data.get("top_image")
 
         if image_from_disk:
-            if image_from_disk:
-                if hasattr(top_image_value, "read"):  
-                    
-                    file_bytes = top_image_value.read()
-                    filename = f"generated_{uuid.uuid4().hex}.png"
-                    
-                    from PIL import Image
-                    import io
+            if hasattr(top_image_value, "read"):
+                file_bytes = top_image_value.read()
+                filename = f"generated_{uuid.uuid4().hex}.png"
 
-                    with Image.open(io.BytesIO(file_bytes)) as img:
-                        width, height = img.size
+                from PIL import Image
+                import io
 
-                    generated_url = upload_image(
-                        file_bytes,                    
-                        "generated_images",
-                        filename
-                    )
-                    
-                    image_instance = GeneratedImage.objects.create(
-                        author=user,
-                        width=width,
-                        height=height,
-                        url=generated_url
-                    )
-                    top_image_value = image_instance
-                else:
-                    raise ValidationError({"top_image": "Niepoprawny plik"})
+                with Image.open(io.BytesIO(file_bytes)) as img:
+                    width, height = img.size
+
+                generated_url = upload_image(
+                    file_bytes,
+                    "generated_images",
+                    filename
+                )
+
+                image_instance = GeneratedImage.objects.create(
+                    author=user,
+                    width=width,
+                    height=height,
+                    url=generated_url
+                )
+                top_image_value = image_instance
+            else:
+                raise ValidationError({"top_image": "Niepoprawny plik"})
         else:
             try:
                 image_instance = GeneratedImage.objects.get(id=top_image_value)
@@ -377,11 +376,13 @@ class CalendarPrint(generics.CreateAPIView):
             upscaled_header_path = None
             if data["top_image"]:
                 result = upscale_image_with_bigjpg(data["top_image"], temp_dir, 4)
-                upscaled_header_path = result["local_upscaled"]
+                if result:
+                    upscaled_header_path = result["local_upscaled"]
 
             if data["bottom"] and data["bottom"].get("type") == "image":
                 result = upscale_image_with_bigjpg(data["bottom"]["url"], temp_dir, 8)
-                data["bottom"]["image_path"] = result["local_upscaled"]
+                if result:
+                    data["bottom"]["image_path"] = result["local_upscaled"]
 
 
             calendar_files = generate_calendar(

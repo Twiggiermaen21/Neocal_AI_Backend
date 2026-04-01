@@ -310,16 +310,13 @@ class CalendarSerializer(serializers.ModelSerializer):
         return data
      # --- Images for fields ---
     def get_images_for_fields(self, obj):
-        
-        
         items = getattr(obj, "prefetched_images_for_fields", getattr(obj, "imageforfield_set", []))
-        
+
         if hasattr(items, 'all'):
              items = items.all()
-             
-        
 
-   
+        return list(items) if items else []
+
 
 class CalendarProductionSerializer(serializers.ModelSerializer):
     calendar_name = serializers.CharField(source='calendar.name', read_only=True)
@@ -347,7 +344,7 @@ class CalendarProductionSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context["request"]
         validated_data["author"] = request.user
-        validated_data["status"] = "waiting"   
+        validated_data["status"] = "draft"
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
@@ -429,11 +426,16 @@ class CalendarYearDataSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "author"]
 
 class BottomImageSerializer(serializers.ModelSerializer):
-    url = serializers.ImageField(source='image', read_only=True)
+    url = serializers.SerializerMethodField()
 
     class Meta:
         model = BottomImage
         fields = ["id", "created_at", "author", "image", "url"]
+
+    def get_url(self, obj):
+        if obj.image and hasattr(obj.image, 'url'):
+            return obj.image.url
+        return None
         read_only_fields = ["id", "created_at", "author"]
 
 class BottomColorSerializer(serializers.ModelSerializer):

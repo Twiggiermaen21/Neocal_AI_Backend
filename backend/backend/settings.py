@@ -80,13 +80,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "allauth.account.middleware.AccountMiddleware"
 ]
 
@@ -161,7 +161,6 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = "static/"
-BASE_DIR = Path(__file__).resolve().parent.parent
 
 STATIC_IMAGES_URL = '/static_images/'
 STATIC_IMAGES_ROOT = os.path.join(BASE_DIR,  'images')
@@ -186,10 +185,10 @@ CSRF_COOKIE_SECURE = False     # localhost nie używa HTTPS
 
 
 
-AUTHENTICATION_BACKENDS={
+AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
-    "allauth.account.auth_backends.AuthenticationBackend"
-}
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
 
 LOGIN_REDIRECT_URL = '/callback/'
 

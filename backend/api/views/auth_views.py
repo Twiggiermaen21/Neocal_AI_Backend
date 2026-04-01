@@ -11,6 +11,7 @@ from google.auth.transport import requests
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from rest_framework import generics, status, response
+from rest_framework.response import Response
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils.http import urlsafe_base64_encode
