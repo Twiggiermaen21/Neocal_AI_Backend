@@ -1,3 +1,6 @@
+from django.conf import settings
+
+
 def generate_custom_prompt(
     baseprompt,
     inspiration=None,
@@ -68,10 +71,12 @@ def get_detailed_prompt_from_model(
     detale: str = None,
     realizm: str = None,
     styl_narracyjny: str = None,
-    model: str = "google/gemma-3n-E4B-it",
+    model: str = None,
     temperature: float = 0.7,
     stream: bool = False
 ):
+    if model is None:
+        model = settings.PROMPT_MODEL
  
     raw_attributes = generate_custom_prompt(
         baseprompt=base_prompt,

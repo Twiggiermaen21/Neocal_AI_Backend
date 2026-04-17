@@ -365,6 +365,38 @@ class CalendarProductionSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
+class UserApprovalSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
+    first_name = serializers.CharField(source="user.first_name", read_only=True)
+    last_name = serializers.CharField(source="user.last_name", read_only=True)
+    is_active = serializers.BooleanField(source="user.is_active", read_only=True)
+    is_staff = serializers.BooleanField(source="user.is_staff", read_only=True)
+    is_superuser = serializers.BooleanField(source="user.is_superuser", read_only=True)
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
+    approved_by_username = serializers.CharField(source="approved_by.username", read_only=True, default=None)
+
+    class Meta:
+        model = UserApproval
+        fields = [
+            "id",
+            "user_id",
+            "username",
+            "email",
+            "first_name",
+            "last_name",
+            "is_active",
+            "is_staff",
+            "is_superuser",
+            "email_confirmed",
+            "approved_by",
+            "approved_by_username",
+            "approved_at",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+
 class PasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField()
 

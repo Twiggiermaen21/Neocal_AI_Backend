@@ -1,0 +1,49 @@
+# venv / python
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# git / vcs
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# django runtime
+*.sqlite3
+media/
+staticfiles/
+
+# docs / misc
+README.md
+*.md
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# tests / coverage
+.coverage
+htmlcov/
+.tox/

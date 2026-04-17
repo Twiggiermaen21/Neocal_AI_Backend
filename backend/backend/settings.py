@@ -33,11 +33,16 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 GOOGLE_CLIENT_ID = os.getenv("CLIENT_ID")
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+IMAGE_MODEL = os.getenv("IMAGE_MODEL", "black-forest-labs/FLUX.1-schnell")
+PROMPT_MODEL = os.getenv("PROMPT_MODEL", "google/gemma-3n-E4B-it")
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ["*"]
-
+ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "*").split(",") if h.strip()]
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -75,7 +80,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
 
 
-    
+
 ]
 
 MIDDLEWARE = [
@@ -169,19 +174,27 @@ STATIC_IMAGES_ROOT = os.path.join(BASE_DIR,  'images')
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://192.168.1.21:5173"
-]
+_DEFAULT_CORS = "http://localhost:5173,http://192.168.1.21:5173,http://localhost:8080"
+CORS_ALLOWED_ORIGINS = [o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", _DEFAULT_CORS).split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
+_DEFAULT_CSRF = "http://localhost:5173,http://localhost:8080"
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", _DEFAULT_CSRF).split(",") if o.strip()]
 
 
-SESSION_COOKIE_SAMESITE = None
+SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = False  # localhost nie używa HTTPS
-CSRF_COOKIE_SAMESITE = None
+CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = False     # localhost nie używa HTTPS
+
+# --- PRODUKCJA (HTTPS) ---
+# Przy deployu na serwer z HTTPS włącz poniższe:
+#   SESSION_COOKIE_SECURE = True
+#   CSRF_COOKIE_SECURE = True
+#   SESSION_COOKIE_SAMESITE = "None"
+#   CSRF_COOKIE_SAMESITE = "None"
+#   SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# oraz dopisz https://twojadomena.pl do CORS_ALLOWED_ORIGINS i CSRF_TRUSTED_ORIGINS.
 
 
 

@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from rest_framework.permissions import IsAuthenticated,  AllowAny
+from rest_framework.permissions import IsAuthenticated,  AllowAny, BasePermission
 from rest_framework_simplejwt.views import TokenObtainPairView
 from ..models import *
 from ..serializers import *
@@ -14,7 +14,8 @@ from rest_framework import generics, status, response
 from rest_framework.response import Response
 from django.core.mail import send_mail
 from django.conf import settings
-from django.utils.http import urlsafe_base64_encode
+from django.utils import timezone
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 from cloudinary.uploader import destroy
@@ -24,6 +25,12 @@ load_dotenv()
 from django.utils.encoding import force_str
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.db.models import Q
+from rest_framework.views import APIView
+
+class IsSuperUser(BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated and request.user.is_superuser)
 
 
 class UpdateProfileImageView(generics.UpdateAPIView):
@@ -63,9 +70,18 @@ class ActivateUserView(generics.ListCreateAPIView):
             return Response({"detail": "Konto jest już aktywne. Możesz się zalogować."}, status=status.HTTP_200_OK)
 
         if default_token_generator.check_token(user, token):
-            user.is_active = True
-            user.save()
-            return Response({"detail": "Konto zostało pomyślnie aktywowane."}, status=status.HTTP_200_OK)
+            approval, _ = UserApproval.objects.get_or_create(user=user)
+            if approval.email_confirmed:
+                return Response(
+                    {"detail": "Email został już potwierdzony. Konto oczekuje na zatwierdzenie przez administratora."},
+                    status=status.HTTP_200_OK,
+                )
+            approval.email_confirmed = True
+            approval.save()
+            return Response(
+                {"detail": "Email został potwierdzony. Konto oczekuje na zatwierdzenie przez administratora."},
+                status=status.HTTP_200_OK,
+            )
         else:
             return Response({"detail": "Link aktywacyjny jest nieprawidłowy lub wygasł."}, status=status.HTTP_400_BAD_REQUEST)
 class CreateUserView(generics.ListCreateAPIView):
@@ -80,11 +96,12 @@ class CreateUserView(generics.ListCreateAPIView):
         if serializer.is_valid():
             print("✅ Dane są poprawne, tworzymy użytkownika...")
             user = serializer.save(is_active=False)
+            UserApproval.objects.get_or_create(user=user)
             print("👤 Utworzono użytkownika:", user.username)
 
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            activation_link = f"http://localhost:5173/activate-account/{uid}/{token}/"
+            activation_link = f"{settings.FRONTEND_URL}/activate-account/{uid}/{token}/"
             context = {
                 'user': user,
                 'activation_link': activation_link
@@ -162,7 +179,7 @@ class PasswordResetView(generics.ListCreateAPIView):
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
         
-        reset_link = f"http://localhost:5173/reset-password/{uid}/{token}/"
+        reset_link = f"{settings.FRONTEND_URL}/reset-password/{uid}/{token}/"
         
         subject = "Reset hasła w Twojej Aplikacji"
 
@@ -197,8 +214,78 @@ class PasswordResetConfirmView(generics.ListCreateAPIView):
         return response.Response({"detail": "Hasło zostało zresetowane"}, status=200)
 
 
-class GoogleAuthView(generics.ListCreateAPIView):
+class UserApprovalListView(generics.ListAPIView):
+    serializer_class = UserApprovalSerializer
+    permission_classes = [IsSuperUser]
+    pagination_class = CalendarPagination
+
+    def get_queryset(self):
+        qs = UserApproval.objects.select_related("user", "approved_by").order_by("-created_at")
+        status_filter = self.request.query_params.get("status")
+        search = self.request.query_params.get("search")
+        if status_filter == "pending":
+            qs = qs.filter(user__is_active=False)
+        elif status_filter == "active":
+            qs = qs.filter(user__is_active=True)
+        elif status_filter == "email_confirmed":
+            qs = qs.filter(email_confirmed=True, user__is_active=False)
+        if search:
+            qs = qs.filter(Q(user__username__icontains=search) | Q(user__email__icontains=search))
+        return qs
+
+
+class UserApprovalActionView(generics.GenericAPIView):
+    permission_classes = [IsSuperUser]
+    serializer_class = UserApprovalSerializer
+
+    def post(self, request, pk):
+        try:
+            approval = UserApproval.objects.select_related("user").get(pk=pk)
+        except UserApproval.DoesNotExist:
+            return Response({"detail": "Nie znaleziono wpisu."}, status=status.HTTP_404_NOT_FOUND)
+
+        action = request.data.get("action")
+        user = approval.user
+
+        if action == "approve":
+            if user.is_active:
+                return Response({"detail": "Konto jest już aktywne."}, status=status.HTTP_400_BAD_REQUEST)
+            user.is_active = True
+            user.save(update_fields=["is_active"])
+            approval.approved_by = request.user
+            approval.approved_at = timezone.now()
+            approval.save(update_fields=["approved_by", "approved_at"])
+            return Response(UserApprovalSerializer(approval).data, status=status.HTTP_200_OK)
+
+        if action == "revoke":
+            if not user.is_active:
+                return Response({"detail": "Konto nie jest aktywne."}, status=status.HTTP_400_BAD_REQUEST)
+            user.is_active = False
+            user.save(update_fields=["is_active"])
+            approval.approved_by = None
+            approval.approved_at = None
+            approval.save(update_fields=["approved_by", "approved_at"])
+            return Response(UserApprovalSerializer(approval).data, status=status.HTTP_200_OK)
+
+        if action == "promote_staff":
+            user.is_staff = True
+            user.save(update_fields=["is_staff"])
+            return Response(UserApprovalSerializer(approval).data, status=status.HTTP_200_OK)
+
+        if action == "demote_staff":
+            if user.is_superuser:
+                return Response({"detail": "Nie można odebrać roli pracownika superużytkownikowi."}, status=status.HTTP_400_BAD_REQUEST)
+            user.is_staff = False
+            user.save(update_fields=["is_staff"])
+            return Response(UserApprovalSerializer(approval).data, status=status.HTTP_200_OK)
+
+        return Response({"detail": "Nieznana akcja."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GoogleAuthView(APIView):
+    authentication_classes = []
     permission_classes = [AllowAny]
+    queryset = User.objects.none()
 
     def post(self, request):
         token = request.data.get("credential")
@@ -225,7 +312,20 @@ class GoogleAuthView(generics.ListCreateAPIView):
                     first_name=name.split(" ")[0] if name else "",
                     last_name=" ".join(name.split(" ")[1:]) if name and len(name.split(" ")) > 1 else ""
                 )
+                user.is_active = False
+                user.save()
+                UserApproval.objects.get_or_create(
+                    user=user, defaults={"email_confirmed": True}
+                )
                 created = True
+
+            if not user.is_active:
+                print(f"[GoogleAuth] Konto {email} oczekuje na zatwierdzenie przez administratora.")
+                return response.Response(
+                    {"error": "Konto oczekuje na zatwierdzenie przez administratora."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             profile_image_url = None
 
             if hasattr(user, "profile"):
@@ -267,5 +367,7 @@ class GoogleAuthView(generics.ListCreateAPIView):
                 "Auth": "Google"
             }, status=status.HTTP_200_OK)
 
-        except ValueError:
-            return response.Response({"error": "Invalid token"}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as e:
+            print(f"[GoogleAuth] Token verify failed: {e}")
+            print(f"[GoogleAuth] CLIENT_ID used: {os.getenv('CLIENT_ID')}")
+            return response.Response({"error": "Invalid token", "detail": str(e)}, status=status.HTTP_403_FORBIDDEN)

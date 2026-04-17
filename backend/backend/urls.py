@@ -1,11 +1,18 @@
 from django.contrib import admin
 from django.urls import path,include
+from django.http import JsonResponse
 from api.views.auth_views import *
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
 
+
+def health_view(request):
+    return JsonResponse({"status": "healthy", "service": "neocalback"})
+
+
 urlpatterns = [
+    path('', health_view, name='health'),
     path('admin/', admin.site.urls),
     path("api/user/register/",CreateUserView.as_view(),name="register"),
     path('activate-account/<uidb64>/<token>/', ActivateUserView.as_view(), name='activate-account'),
@@ -16,6 +23,8 @@ urlpatterns = [
     path("api-auth/",include("rest_framework.urls")),
     path('accounts/', include('allauth.urls')),
     path('auth/google/', GoogleAuthView.as_view(), name='google_auth'),
+    path("api/admin/user-approvals/", UserApprovalListView.as_view(), name='user-approvals'),
+    path("api/admin/user-approvals/<int:pk>/action/", UserApprovalActionView.as_view(), name='user-approval-action'),
     path("api/",include("api.urls")),
 ]
 

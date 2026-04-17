@@ -10,6 +10,17 @@ class ProfileImage(models.Model):
 
     def __str__(self):
         return self.user.username
+
+
+class UserApproval(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="approval")
+    email_confirmed = models.BooleanField(default=False)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="approved_users")
+    approved_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} (email_confirmed={self.email_confirmed}, active={self.user.is_active})"
 class GeneratedImage(models.Model):
     author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     prompt = models.CharField(max_length=500)

@@ -1,10 +1,11 @@
 import base64
+from django.conf import settings
 
 def generate_image(client, prompt, width, height):
     print("prompt", prompt)
     response = client.images.generate(
         prompt=prompt,
-        model="black-forest-labs/FLUX.1-schnell",
+        model=settings.IMAGE_MODEL,
         width=width,
         height=height,
         steps=4,
